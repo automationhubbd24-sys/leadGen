@@ -2,7 +2,6 @@ import os
 import time
 import random
 import base64
-import secrets
 from email.mime.text import MIMEText
 from threading import Thread
 
@@ -38,18 +37,25 @@ class User(db.Model):
 with app.app_context():
     db.create_all()
 
-def run_campaign_in_background(master_sheet_id, user_creds):
-    """
-    Runs the multi-account campaign with advanced anti-spam techniques.
-    """
-    sheets_service = build('sheets', 'v4', credentials=user_creds)
-    gmail_service = build('gmail', 'v1', credentials=user_creds)
-    
+def get_google_client_config():
+    import json
+    with open(CLIENT_SECRETS_FILE, 'r') as f:
+        return json.load()['web']
+
+def run_campaign_in_background(master_sheet_id):
+    client_config = get_google_client_config()
     try:
+        # Use a dummy credential to build the initial service
+        dummy_creds = Credentials(
+            None, token_uri=client_config['token_uri'],
+            client_id=client_config['client_id'], client_secret=client_config['client_secret']
+        )
+        sheets_service = build('sheets', 'v4', credentials=dummy_creds)
+        
         master_sheet = sheets_service.spreadsheets().values().get(
-            spreadsheetId=master_sheet_id,
-            range="A:B"
+            spreadsheetId=master_sheet_id, range="A:C"
         ).execute()
+        
         accounts = master_sheet.get('values', [])
         if not accounts or len(accounts) <= 1:
             print("Master sheet is empty or has no accounts.")
@@ -57,47 +63,66 @@ def run_campaign_in_background(master_sheet_id, user_creds):
 
         for i, account_row in enumerate(accounts):
             if i == 0: continue
+            if len(account_row) < 3:
+                print(f"Skipping incomplete row in master sheet: {account_row}")
+                continue
 
-            account_email, campaign_sheet_id = account_row[0], account_row[1]
+            account_email, refresh_token, campaign_sheet_id = account_row
             print(f"Processing account: {account_email}")
-            
-            campaign_sheet = sheets_service.spreadsheets().values().get(
-                spreadsheetId=campaign_sheet_id,
-                range="A:C"
+
+            # 1. Create credentials for the current account using its refresh token
+            current_creds = Credentials(
+                None,
+                refresh_token=refresh_token,
+                token_uri=client_config['token_uri'],
+                client_id=client_config['client_id'],
+                client_secret=client_config['client_secret'],
+                scopes=SCOPES
+            )
+
+            # 2. Build services with the new credentials
+            gmail_service = build('gmail', 'v1', credentials=current_creds)
+            current_sheets_service = build('sheets', 'v4', credentials=current_creds)
+
+            # 3. Read the campaign sheet for the current account
+            campaign_sheet = current_sheets_service.spreadsheets().values().get(
+                spreadsheetId=campaign_sheet_id, range="A:D"
             ).execute()
+            
             recipients = campaign_sheet.get('values', [])
             if not recipients or len(recipients) <= 1:
                 print(f"Campaign sheet for {account_email} is empty.")
                 continue
 
+            # 4. Send emails for the current account
             for j, recipient_row in enumerate(recipients):
                 if j == 0: continue
+                if len(recipient_row) < 4:
+                    print(f"Skipping incomplete row in campaign sheet: {recipient_row}")
+                    continue
+                
+                recipient_email, name, subject, body = recipient_row
+                
+                final_subject = subject.replace('{name}', name)
+                final_body = body.replace('{name}', name)
 
-                to_email, name, subject_template = recipient_row[0], recipient_row[1], recipient_row[2]
-                
-                personalized_subject = subject_template.replace("{name}", name)
-                
-                greetings = [f"Hi {name},", f"Hello {name},", f"Dear {name},"]
-                closings = ["\n\nBest regards,", "\n\nSincerely,", "\n\nCheers,"]
-                
-                message_body = f"{random.choice(greetings)}\n\nThis is the main content of the email.{random.choice(closings)}"
-                
-                unsubscribe_link = f"\n\nTo unsubscribe, please click here: http://your-domain.com/unsubscribe?email={to_email}"
-                full_message = message_body + unsubscribe_link
-
-                message = MIMEText(full_message)
-                message['to'] = to_email
-                message['subject'] = personalized_subject
+                message = MIMEText(final_body)
+                message['to'] = recipient_email
+                message['from'] = account_email
+                message['subject'] = final_subject
                 raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
                 
-                gmail_service.users().messages().send(userId='me', body={'raw': raw_message}).execute()
-
-                print(f"Sent email to {to_email} from {account_email}")
-
-                time.sleep(random.randint(25, 60))
-
-    except HttpError as error:
-        print(f"An error occurred: {error}")
+                try:
+                    gmail_service.users().messages().send(
+                        userId='me', body={'raw': raw_message}
+                    ).execute()
+                    print(f"Email sent to {recipient_email} from {account_email}")
+                except Exception as e:
+                    print(f"Failed to send email to {recipient_email}: {e}")
+                
+                time.sleep(random.uniform(5, 15))
+    except Exception as e:
+        print(f"An error occurred in the background campaign: {e}")
 
 @app.route('/api/login')
 def login():
@@ -118,59 +143,27 @@ def login():
 def oauth2callback():
     state = session['state']
     flow = Flow.from_client_secrets_file(
-        CLIENT_SECRETS_FILE,
-        scopes=SCOPES,
-        state=state,
+        CLIENT_SECRETS_FILE, scopes=SCOPES, state=state,
         redirect_uri=url_for('oauth2callback', _external=True)
     )
-    
-    authorization_response = request.url
-    flow.fetch_token(authorization_response=authorization_response)
-    
+    flow.fetch_token(authorization_response=request.url)
     credentials = flow.credentials
-    
-    service = build('oauth2', 'v2', credentials=credentials)
-    user_info = service.userinfo().get().execute()
-
-    user = User.query.filter_by(id=user_info['id']).first()
-    if not user:
-        user = User(
-            id=user_info['id'],
-            email=user_info['email'],
-            refresh_token=credentials.refresh_token
-        )
-        db.session.add(user)
-    else:
-        user.refresh_token = credentials.refresh_token
-    
-    db.session.commit()
-    
     session['credentials'] = {
-        'token': credentials.token,
-        'refresh_token': credentials.refresh_token,
-        'token_uri': credentials.token_uri,
-        'client_id': credentials.client_id,
-        'client_secret': credentials.client_secret,
-        'scopes': credentials.scopes
+        'token': credentials.token, 'refresh_token': credentials.refresh_token,
+        'token_uri': credentials.token_uri, 'client_id': credentials.client_id,
+        'client_secret': credentials.client_secret, 'scopes': credentials.scopes
     }
-    
     return redirect("http://localhost:3000/dashboard")
 
 @app.route('/api/start-multi-campaign', methods=['POST'])
 def start_multi_campaign():
-    if 'credentials' not in session:
-        return jsonify({'error': 'User not logged in'}), 401
-
     master_sheet_id = request.json.get('masterSheetId')
     if not master_sheet_id:
         return jsonify({'error': 'Master Sheet ID is required'}), 400
 
-    user_creds = Credentials(**session['credentials'])
-
-    thread = Thread(target=run_campaign_in_background, args=(master_sheet_id, user_creds))
+    thread = Thread(target=run_campaign_in_background, args=(master_sheet_id,))
     thread.start()
-
-    return jsonify({'status': 'Multi-account campaign started in the background.'})
+    return jsonify({'status': 'Campaign started. Check terminal for progress.'})
 
 if __name__ == '__main__':
     os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
