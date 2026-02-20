@@ -1,0 +1,185 @@
+body {
+  background-color: #f0f2f5;
+  color: #333;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+.App {
+  text-align: center;
+}
+
+.App-header {
+  background-color: #ffffff;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: #2c3e50;
+  padding: 2rem;
+  box-sizing: border-box;
+}
+
+h1 {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  color: #1a73e8;
+}
+
+h2 {
+  font-size: 1.8rem;
+  margin-bottom: 0.5rem;
+}
+
+p {
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
+
+button {
+  background-color: #1a73e8;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  margin-top: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+button:hover {
+  background-color: #155ab6;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.api-key-display {
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-top: 2rem;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.api-key-display h3 {
+  margin-top: 0;
+  color: #343a40;
+}
+
+.api-key-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #e9ecef;
+  border-radius: 6px;
+  padding: 8px;
+  margin-top: 1rem;
+}
+
+.api-key-box code {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.9rem;
+  word-break: break-all;
+  padding: 0 8px;
+}
+
+.api-key-box button {
+  background-color: #28a745;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  margin-top: 0;
+}
+
+.api-key-box button:hover {
+  background-color: #218838;
+}
+
+.footer {
+  position: absolute;
+  bottom: 20px;
+  font-size: 0.9rem;
+  color: #6c757d;
+}
+
+.app-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.top-nav {
+    background-color: #343a40;
+    color: white;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.top-nav h1 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.nav-link {
+    color: white;
+    text-decoration: none;
+    margin-left: 1.5rem;
+    font-weight: 500;
+    transition: color 0.2s;
+}
+
+.nav-link:hover {
+    color: #007bff;
+}
+
+main {
+    flex-grow: 1;
+    padding: 2rem;
+}
+
+.dashboard {
+    max-width: 600px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.campaign-form {
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 2rem;
+  margin-top: 2rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.campaign-form h2 {
+  margin-top: 0;
+}
+
+.campaign-form input {
+  width: 100%;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #ced4da;
+  font-size: 1rem;
+  margin-top: 1rem;
+  box-sizing: border-box;
+}
+
+.status-message {
+  margin-top: 1rem;
+  color: #007bff;
+  font-weight: 500;
+}
