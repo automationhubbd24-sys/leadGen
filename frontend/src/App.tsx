@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import Dashboard from './Dashboard.tsx';
+import Dashboard from './Dashboard';
 import Instructions from './Instructions';
 import './App.css';
 
